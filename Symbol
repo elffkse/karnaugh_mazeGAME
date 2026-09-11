@@ -1,0 +1,35 @@
+public class Symbol {
+    static char[] operators = {'~','^','v','+','>','='};
+    static char[] literals = {'A','B','C','D','a','b','c','d'};
+    char symbol;
+
+    private int row;
+    private int col;
+
+    public Symbol(char symbol) { this.symbol = symbol; }
+
+    // Eşyaların harita üzerindeki konumları için kullanılıyor
+    public Symbol(int row, int col, char symbol) {
+        this.row = row;
+        this.col = col;
+        this.symbol = symbol;
+    }
+
+    public char getSymbol() { return symbol; }
+
+    public void setRow(int row) { this.row = row; }
+    public int getRow() { return row; }
+    public void setCol(int col) { this.col = col; }
+    public int getCol() { return col; }
+
+    public boolean isUnaryOperator() { return symbol == '~'; }
+    public boolean isOperator() {
+        for (char op : operators) if (symbol == op) return true;
+        return false;
+    }
+    public boolean isLiteral() {
+        for (char lit : literals) if (symbol == lit) return true;
+        return false;
+    }
+    public boolean isBinaryOperator() { return isOperator() && symbol != '~'; }
+}
