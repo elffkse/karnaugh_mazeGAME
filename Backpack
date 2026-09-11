@@ -1,0 +1,47 @@
+public class Backpack {
+    private static final int MAX_CAPACITY = 8;
+    private SingleLinkedList stack;
+    private Node topNode; // lifo
+    private int size;
+
+    public Backpack() {
+        stack = new SingleLinkedList();
+        topNode = null;
+        size = 0;
+    }
+
+    public boolean push(Symbol symbol) {
+        if (isFull())
+            return false;
+        Node newNode = new Node(symbol);
+        newNode.setLink(topNode);
+        topNode = newNode;
+        stack.unsortedAdding(symbol);
+        size++;
+        return true;
+    }
+
+    public Symbol pop() {
+        if (isEmpty()) return null;
+        Symbol data = (Symbol) topNode.getData();
+        topNode = topNode.getLink();
+        size--;
+        return data;
+    }
+
+    public boolean isEmpty() { return size == 0; }
+    public boolean isFull() { return size >= MAX_CAPACITY; }
+    public int getSize() { return size; }
+
+    public String getContentsAsString() {
+        if (isEmpty()) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        Node current = topNode;
+        while (current != null) {
+            sb.append(((Symbol)current.getData()).getSymbol());
+            if (current.getLink() != null) sb.append(", ");
+            current = current.getLink();
+        }
+        sb.append("]");
+        return sb.toString();
+    }
