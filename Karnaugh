@@ -1,0 +1,546 @@
+import enigma.console.TextAttributes;
+import java.awt.Color;
+
+public class Karnaugh {
+
+    //added for search method's factoriel search
+    private int minTermCount = Integer.MAX_VALUE;
+    private int[][] absoluteBestGroups = new int[1000][4];
+    private int absoluteBestGroupCount = 0;
+
+    private int totalVariableCount;
+    private int[][] mapGrids;
+    private Symbol[] logicSymbols;
+    private int[][] grayCodeTurnMatrix = {{0,0}, {0,1}, {1,1}, {1,0}};
+    private int horizontalStartingPoint;
+    private int verticalStartingPoint;
+    private int[][] foundGroups;
+    private int foundGroupCount;
+
+
+    public Karnaugh(Symbol[] symbols, int startX, int startY) {
+        this.logicSymbols = symbols;
+        this.totalVariableCount = symbols.length;
+
+        this.horizontalStartingPoint = startX;
+        this.verticalStartingPoint = startY;
+
+        foundGroups=new int[1000][4];
+        foundGroupCount=0;
+
+        if(totalVariableCount == 3) {
+            mapGrids = new int [2][4];
+        } else {
+            mapGrids = new int[4][4];
+        }
+    }
+
+    // we are solving the expression by touring the tree
+    private boolean calculateEntireTreeLogic(Expression expr, boolean[] currentSymbolTruthValues) {
+        if (expr == null) return false;
+
+        boolean leftBranchCalculatedValue = false;
+        if (expr.operand01 != null) {
+            leftBranchCalculatedValue = calculateEntireTreeLogic(expr.operand01, currentSymbolTruthValues);
+        }
+        else if (expr.operand00 != null) {
+            leftBranchCalculatedValue = extractTruthValueFromLiteralArray(expr.operand00, currentSymbolTruthValues);
+        }
+
+        if (expr.operator == null) {
+            return leftBranchCalculatedValue;
+        }
+
+        if (expr.operator.isUnaryOperator()) {
+            return expr.calculate(leftBranchCalculatedValue);
+        }
+
+        boolean rightBranchCalculatedValue = false;
+        if (expr.operand11 != null) {
+            rightBranchCalculatedValue = calculateEntireTreeLogic(expr.operand11, currentSymbolTruthValues);
+        } else if (expr.operand10 != null) {
+            rightBranchCalculatedValue = extractTruthValueFromLiteralArray(expr.operand10, currentSymbolTruthValues);
+        }
+
+        return expr.calculate(leftBranchCalculatedValue, rightBranchCalculatedValue);
+    }
+
+    // finding the a, b and c values in the loop and calling them
+    private boolean extractTruthValueFromLiteralArray(Symbol sym, boolean[] currentSymbolTruthValues) {
+        for (int i = 0; i < totalVariableCount; i++) {
+            if (logicSymbols[i].getSymbol() == sym.getSymbol()) {
+                return currentSymbolTruthValues[i];
+            }
+        }
+        return false;
+    }
+
+    private void GridThree(Expression calculatedexpression) {
+        for(int i = 0; i < 2; i++) {
+            for(int j = 0; j < 4; j++) {
+                // Triple map values
+                boolean[] currentSymbolTruthValues = new boolean[3];
+                currentSymbolTruthValues[0] = (i == 1);
+                currentSymbolTruthValues[1] = (grayCodeTurnMatrix[j][0] == 1);
+                currentSymbolTruthValues[2] = (grayCodeTurnMatrix[j][1] == 1);
+
+                if (calculateEntireTreeLogic(calculatedexpression, currentSymbolTruthValues)) {
+                    mapGrids[i][j] = 1;
+                }
+                else {
+                    mapGrids[i][j] = 0;
+                }
+            }
+        }
+    }
+
+    private void GridFour(Expression calculatedexpression) {
+        for(int i = 0; i < 4; i++) {
+            for(int j = 0; j < 4; j++) {
+                // Quadruple (4) map values
+                boolean[] currentSymbolTruthValues = new boolean[4];
+                currentSymbolTruthValues[0] = (grayCodeTurnMatrix[i][0] == 1);
+                currentSymbolTruthValues[1] = (grayCodeTurnMatrix[i][1] == 1);
+                currentSymbolTruthValues[2] = (grayCodeTurnMatrix[j][0] == 1);
+                currentSymbolTruthValues[3] = (grayCodeTurnMatrix[j][1] == 1);
+
+                if (calculateEntireTreeLogic(calculatedexpression, currentSymbolTruthValues)) {
+                    mapGrids[i][j] = 1;
+                }
+                else {
+                    mapGrids[i][j] = 0;
+                }
+            }
+        }
+    }
+
+    public void fillGrids(Expression calculatedexpression) {
+        if (totalVariableCount == 3) {
+            GridThree(calculatedexpression);
+        } else {
+            GridFour(calculatedexpression);
+        }
+    }
+
+    public void drawGrid(enigma.console.Console consoleWindow) {
+        int mapRows = (totalVariableCount == 3) ? 2 : 4;
+        int gridHeight = mapRows * 2 + 1;
+        char[][] grid = new char[gridHeight][25];
+        Color[][] colors = new Color[gridHeight][25];
+
+        for(int r = 0; r < gridHeight; r++) {
+            for(int c = 0; c < 25; c++) {
+                colors[r][c] = Color.WHITE;
+                if (r % 2 == 0) {
+                    grid[r][c] = (c % 6 == 0) ? '+' : '-';
+                } else {
+                    grid[r][c] = (c % 6 == 0) ? '|' : ' ';
+                }
+            }
+        }
+
+        for(int r = 0; r < mapRows; r++) {
+            for(int c = 0; c < 4; c++) {
+                int val = mapGrids[r][c];
+                grid[r * 2 + 1][c * 6 + 3] = (char)('0' + val);
+                colors[r * 2 + 1][c * 6 + 3] = (val == 1) ? Color.YELLOW : Color.WHITE;
+            }
+        }
+
+        Color[] groupColors = {Color.RED, Color.BLUE, Color.GREEN, Color.MAGENTA, Color.ORANGE, Color.PINK};
+        for(int g = 0; g < foundGroupCount; g++) {
+            Color gCol = groupColors[g % groupColors.length];
+            int sr = foundGroups[g][0];
+            int sc = foundGroups[g][1];
+            int hg = foundGroups[g][2];
+            int wg = foundGroups[g][3];
+
+            for(int i = 0; i < hg; i++) {
+                for(int j = 0; j < wg; j++) {
+                    int rr = (sr + i) % mapRows;
+                    int cc = (sc + j) % 4;
+
+                    if (i == 0) {
+                        int gy = rr * 2;
+                        for(int gx = cc * 6; gx <= cc * 6 + 6; gx++) {
+                            colors[gy][gx] = gCol;
+                            grid[gy][gx] = (gx % 6 == 0) ? '+' : '-';
+                        }
+                    }
+                    if (i == hg - 1) {
+                        int gy = rr * 2 + 2;
+                        for(int gx = cc * 6; gx <= cc * 6 + 6; gx++) {
+                            colors[gy][gx] = gCol;
+                            grid[gy][gx] = (gx % 6 == 0) ? '+' : '-';
+                        }
+                    }
+                    if (j == 0) {
+                        int gx = cc * 6;
+                        for(int gy = rr * 2; gy <= rr * 2 + 2; gy++) {
+                            colors[gy][gx] = gCol;
+                            grid[gy][gx] = (gy % 2 == 0) ? '+' : '|';
+                        }
+                    }
+                    if (j == wg - 1) {
+                        int gx = cc * 6 + 6;
+                        for(int gy = rr * 2; gy <= rr * 2 + 2; gy++) {
+                            colors[gy][gx] = gCol;
+                            grid[gy][gx] = (gy % 2 == 0) ? '+' : '|';
+                        }
+                    }
+                }
+            }
+        }
+
+        int startX = horizontalStartingPoint + 5;
+        int startY = verticalStartingPoint + 2;
+
+        for(int r = 0; r < gridHeight; r++) {
+            for(int c = 0; c < 25; c++) {
+                TextAttributes attr = new TextAttributes(colors[r][c], Color.BLACK);
+                consoleWindow.getTextWindow().output(startX + c, startY + r, grid[r][c], attr);
+            }
+        }
+
+        TextAttributes headerAttr = new TextAttributes(Color.CYAN, Color.BLACK);
+        String[] topGray = {"00", "01", "11", "10"};
+
+        if (totalVariableCount == 3) {
+            String topVars = logicSymbols[1].getSymbol() + "" + logicSymbols[2].getSymbol();
+            printLine(consoleWindow, startX + 2, verticalStartingPoint, topVars, headerAttr);
+
+            for(int c = 0; c < 4; c++) {
+                printLine(consoleWindow, startX + c * 6 + 2, verticalStartingPoint + 1, topGray[c], headerAttr);
+            }
+
+            String leftVars = logicSymbols[0].getSymbol() + "";
+            printLine(consoleWindow, horizontalStartingPoint, startY, leftVars, headerAttr);
+
+            String[] leftGray = {"0", "1"};
+            for(int r = 0; r < 2; r++) {
+                printLine(consoleWindow, horizontalStartingPoint, startY + 1 + r * 2, leftGray[r], headerAttr);
+            }
+        } else {
+            String topVars = logicSymbols[2].getSymbol() + "" + logicSymbols[3].getSymbol();
+            printLine(consoleWindow, startX + 2, verticalStartingPoint, topVars, headerAttr);
+
+            for(int c = 0; c < 4; c++) {
+                printLine(consoleWindow, startX + c * 6 + 2, verticalStartingPoint + 1, topGray[c], headerAttr);
+            }
+
+            String leftVars = logicSymbols[0].getSymbol() + "" + logicSymbols[1].getSymbol();
+            printLine(consoleWindow, horizontalStartingPoint, startY, leftVars, headerAttr);
+
+            String[] leftGray = {"00", "01", "11", "10"};
+            for(int r = 0; r < 4; r++) {
+                printLine(consoleWindow, horizontalStartingPoint, startY + 1 + r * 2, leftGray[r], headerAttr);
+            }
+        }
+    }
+
+    private void printLine(enigma.console.Console consoleWindow, int horizontalTargetCoordinate, int verticalTargetCoordinate, String textToBePrintedOnScreen, TextAttributes selectedTextAttributes) {
+        for (int currentCharacterIndex = 0; currentCharacterIndex < textToBePrintedOnScreen.length(); currentCharacterIndex++) {
+            consoleWindow.getTextWindow().output(horizontalTargetCoordinate + currentCharacterIndex, verticalTargetCoordinate, textToBePrintedOnScreen.charAt(currentCharacterIndex), selectedTextAttributes);
+        }
+    }
+
+    public int[][] getGrids() { return mapGrids; }
+
+    public void searchGroups(int[][] mapGrids, int[][] currentSearchingSizes) {
+        this.foundGroupCount = 0;
+        int rows = mapGrids.length;
+        int columns = 4;
+
+        this.foundGroups = new int[1000][4];
+
+        //i is assigned as starting row j is assigned as starting column
+        for(int i = 0; i < rows; i++) {
+            for(int j = 0; j < columns; j++) {
+                for (int k = 0; k < currentSearchingSizes.length; k++) {
+                    int groupHeight = currentSearchingSizes[k][0];
+                    int groupWidth = currentSearchingSizes[k][1];
+
+                    if(groupHeight > rows) {
+                        continue;
+                    }
+
+                    boolean allOnes = true;
+
+                    for(int m = 0; m < groupHeight; m++) {
+                        for(int temp = 0; temp < groupWidth; temp++) {
+                            int reelrows = (i + m) % rows;
+                            int reelcolumns = (j + temp) % columns;
+
+                            if(mapGrids[reelrows][reelcolumns] != 1) {
+                                allOnes = false;
+                                break;
+                            }
+                        }
+                        if(!allOnes) {
+                            break;
+                        }
+                    }
+
+                    if(allOnes) {
+                        foundGroups[foundGroupCount][0] = i;
+                        foundGroups[foundGroupCount][1] = j;
+                        foundGroups[foundGroupCount][2] = groupHeight;
+                        foundGroups[foundGroupCount][3] = groupWidth;
+                        foundGroupCount++;
+                    }
+                }
+            }
+        }
+    }
+
+    public void BestGroup() {
+        int rows = mapGrids.length;
+        int columns=4;
+
+        //holds the possible groups starting from the biggest part deleted to work with all ways
+        //operation for tracking the called 1s and holding the necessary groups for only them
+        int[][] onesUsed=new int[rows][columns];
+        boolean[]usedControl=new boolean[foundGroupCount];
+
+        boolean changeControl=true;
+
+        while(changeControl) {
+            changeControl=false;
+
+            for(int k=0;k<foundGroupCount;k++) {
+                if (usedControl[k]) {
+                    continue;
+                }
+
+                int startingRow=foundGroups[k][0];
+                int startingColumn=foundGroups[k][1];
+
+                int groupsHeight=foundGroups[k][2];
+                int groupsWidth=foundGroups[k][3];
+
+                boolean newCoverControl=false;
+
+                for(int i=0;i<groupsHeight;i++) {
+                    for(int j=0;j<groupsWidth;j++) {
+                        int row=(startingRow+i)%rows;
+                        // +j is added for the column searching
+                        int column=(startingColumn+j)%columns;
+
+                        if(mapGrids[row][column]==1&&onesUsed[row][column]==0) {
+                            newCoverControl=true;
+                        }
+                    }
+                }
+
+                if (newCoverControl==true) {
+                    usedControl[k]=true;
+                    changeControl=true;
+
+                    for(int i=0;i<groupsHeight;i++ ) {
+                        for(int j=0;j<groupsWidth;j++) {
+                            int row =(startingRow+i)%rows;
+                            int column=(startingColumn+j)%columns;
+
+                            onesUsed[row][column]=1;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int k = 0; k < foundGroupCount; k++) {
+            if (!usedControl[k]) continue;
+
+            boolean isRedundant = true;
+            int startingRow = foundGroups[k][0], startingColumn = foundGroups[k][1];
+            int groupsHeight = foundGroups[k][2], groupsWidth = foundGroups[k][3];
+
+            for (int i = 0; i < groupsHeight; i++) {
+                for (int j = 0; j < groupsWidth; j++) {
+                    int r = (startingRow + i) % rows, c = (startingColumn + j) % columns;
+
+                    boolean coveredByOthers = false;
+                    for (int other = 0; other < foundGroupCount; other++) {
+                        if (k == other || !usedControl[other]) continue;
+
+                        int osr = foundGroups[other][0], osc = foundGroups[other][1];
+                        int ogh = foundGroups[other][2], ogw = foundGroups[other][3];
+
+                        for (int oi = 0; oi < ogh; oi++) {
+                            for (int oj = 0; oj < ogw; oj++) {
+                                if ((osr + oi) % rows == r && (osc + oj) % columns == c) {
+                                    coveredByOthers = true; break;
+                                }
+                            }
+                            if (coveredByOthers) break;
+                        }
+                    }
+                    if (!coveredByOthers) { isRedundant = false; break; }
+                }
+                if (!isRedundant) break;
+            }
+            if (isRedundant) usedControl[k] = false; // we are checking if its necessary, if it takes somewhere that is already taken, its unnecessary
+        }
+
+        //holding the necessary groups
+        int counter=0;
+        int[][] neededGroups=new int [1000][4];
+
+        for(int i=0;i<foundGroupCount;i++) {
+            if(usedControl[i]==true ) {
+                neededGroups[counter]=foundGroups[i];
+                counter++;
+            }
+        }
+        foundGroups=neededGroups;
+        foundGroupCount=counter;
+    }
+
+    public void findOptimalGrouping(int[][] mapGrids) {
+        int[][] baseSearchingSizes = {
+                {4, 4},
+                {4, 2}, {2, 4},
+                {4, 1}, {1, 4},
+                {2, 2},
+                {2, 1}, {1, 2},
+                {1, 1}
+        };
+
+        minTermCount = Integer.MAX_VALUE;
+        absoluteBestGroupCount = 0;
+
+        generatePermutations(baseSearchingSizes, baseSearchingSizes.length, mapGrids);
+
+        this.foundGroups = this.absoluteBestGroups;
+        this.foundGroupCount = this.absoluteBestGroupCount;
+    }
+
+    private void generatePermutations(int[][] array, int n, int[][] mapGrids) {
+        if (n == 1) {
+            searchGroups(mapGrids, array);
+            BestGroup();
+
+            if (foundGroupCount < minTermCount) {
+                minTermCount = foundGroupCount;
+                absoluteBestGroupCount = foundGroupCount;
+
+                for (int i = 0; i < foundGroupCount; i++) {
+                    absoluteBestGroups[i] = foundGroups[i].clone();
+                }
+            }
+        } else {
+            for (int i = 0; i < n; i++) {
+                generatePermutations(array, n - 1, mapGrids);
+
+                // Element-by-element swap with classic if-else for Heap's algorithm
+                int swapIndex;
+                if (n % 2 == 0) {
+                    swapIndex = i;
+                } else {
+                    swapIndex = 0;
+                }
+
+                int tempHeight = array[swapIndex][0];
+                array[swapIndex][0] = array[n - 1][0];
+                array[n - 1][0] = tempHeight;
+
+                int tempWidth = array[swapIndex][1];
+                array[swapIndex][1] = array[n - 1][1];
+                array[n - 1][1] = tempWidth;
+            }
+        }
+    }
+
+    /*
+    This function searches the valid rectangles that are found and chosen on the map
+    each group analyses gray code (A, B, C, D) values of the cells inside of it
+    finds the variables whose values do not change inside the group, and turns them into a text based on boolean algebra
+    and finally returns the most minimal expression by combining them with OR operator
+     */
+    public String simplify() {
+        int rows = mapGrids.length;
+        int columns = 4;
+        String result = "";
+
+        for (int i = 0; i < foundGroupCount; i++) {
+
+            int startingRow = foundGroups[i][0];
+            int startingColumn = foundGroups[i][1];
+            int groupsHeight = foundGroups[i][2];
+            int groupsWidth = foundGroups[i][3];
+
+            int[] minimumValues = new int[totalVariableCount];
+            int[] maximumValues = new int[totalVariableCount];
+
+            for (int j = 0; j < totalVariableCount; j++) {
+                minimumValues[j] = 1;
+                maximumValues[j] = 0;
+            }
+
+            for (int k = 0; k < groupsHeight; k++) {
+                for (int l = 0; l < groupsWidth; l++) {
+
+                    int reelRow = (startingRow + k) % rows;
+                    int reelColumn = (startingColumn + l) % columns;
+
+                    int[] cellValues = GetCellVariableValues(reelRow, reelColumn);
+
+                    for (int v = 0; v < totalVariableCount; v++) {
+                        if (cellValues[v] < minimumValues[v]) {
+                            minimumValues[v] = cellValues[v];
+                        }
+                        if (cellValues[v] > maximumValues[v]) {
+                            maximumValues[v] = cellValues[v];
+                        }
+                    }
+                }
+            }
+
+            String term = "";
+            for (int v = 0; v < totalVariableCount; v++) {
+                if (minimumValues[v] == maximumValues[v]) {
+                    if (minimumValues[v] == 1) {
+                        term = term + logicSymbols[v].getSymbol();
+                    } else {
+                        term = term + logicSymbols[v].getSymbol() + "'";
+                    }
+                }
+            }
+
+            if (term.equals("")) {
+                term = "1";
+            }
+
+            if (!result.equals("")) {
+                result = result + " + ";
+            }
+
+            result = result + term;
+        }
+
+        return result;
+    }
+
+    /*
+    This function takes in the row and column numbers in the Karnaugh map
+    Using these coordinates, checks out the equivalents in the gray code matrix of that cell
+    returns an array that has three elements if the map is with 3 variables, and same for 4
+    so the computer can understand which values in that cell are 0 or 1
+     */
+    private int[] GetCellVariableValues(int row, int column) {
+        if (totalVariableCount == 3) {
+            int[] values = new int[3];
+            values[0] = row;
+            values[1] = grayCodeTurnMatrix[column][0];
+            values[2] = grayCodeTurnMatrix[column][1];
+            return values;
+        } else {
+            int[] values = new int[4];
+            values[0] = grayCodeTurnMatrix[row][0];
+            values[1] = grayCodeTurnMatrix[row][1];
+            values[2] = grayCodeTurnMatrix[column][0];
+            values[3] = grayCodeTurnMatrix[column][1];
+            return values;
+        }
+    }
+}
