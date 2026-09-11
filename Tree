@@ -1,0 +1,220 @@
+public class Tree {
+
+    /*
+               --------------0--------------
+              /                             \
+       ------1------                  ------2------
+      /             \                /             \
+   --3--           --4--          --5--           --6--
+  /     \         /     \        /     \         /     \
+ 7       8       9       10     11      12      13      14
+/ \     / \     / \     / \    / \     / \     / \     / \
+15 16   17 18   19 20   21 22  23 24   25 26   27 28   29 30
+     */
+
+    Expression[] expressions;
+    Symbol[] symbols;
+    int cursor;
+
+    public Tree() {
+        cursor = 0;
+        expressions = new Expression[31];
+        symbols = new Symbol[31];
+    }
+
+    public Symbol getLeftChild(int parent){
+        switch (parent){
+            case 0: return symbols[1];
+            case 1: return symbols[3];
+            case 2: return symbols[5];
+            case 3: return symbols[7];
+            case 4: return symbols[9];
+            case 5: return symbols[11];
+            case 6: return symbols[13];
+            case 7: return symbols[15];
+            case 8: return symbols[17];
+            case 9: return symbols[19];
+            case 10: return symbols[21];
+            case 11: return symbols[23];
+            case 12: return symbols[25];
+            case 13: return symbols[27];
+            case 14: return symbols[29];
+            default: return null;
+        }
+    }
+
+    public Symbol getRightChild(int parent){
+        switch (parent){
+            case 0: return symbols[2];
+            case 1: return symbols[4];
+            case 2: return symbols[6];
+            case 3: return symbols[8];
+            case 4: return symbols[10];
+            case 5: return symbols[12];
+            case 6: return symbols[14];
+            case 7: return symbols[16];
+            case 8: return symbols[18];
+            case 9: return symbols[20];
+            case 10: return symbols[22];
+            case 11: return symbols[24];
+            case 12: return symbols[26];
+            case 13: return symbols[28];
+            case 14: return symbols[30];
+            default: return null;
+        }
+    }
+
+    public Expression getLeftChildExp(int parent){
+        switch (parent){
+            case 0: return expressions[1];
+            case 1: return expressions[3];
+            case 2: return expressions[5];
+            case 3: return expressions[7];
+            case 4: return expressions[9];
+            case 5: return expressions[11];
+            case 6: return expressions[13];
+            case 7: return expressions[15];
+            case 8: return expressions[17];
+            case 9: return expressions[19];
+            case 10: return expressions[21];
+            case 11: return expressions[23];
+            case 12: return expressions[25];
+            case 13: return expressions[27];
+            case 14: return expressions[29];
+            default: return null;
+        }
+    }
+
+    public Expression getRightChildExp(int parent){
+        switch (parent){
+            case 0: return expressions[2];
+            case 1: return expressions[4];
+            case 2: return expressions[6];
+            case 3: return expressions[8];
+            case 4: return expressions[10];
+            case 5: return expressions[12];
+            case 6: return expressions[14];
+            case 7: return expressions[16];
+            case 8: return expressions[18];
+            case 9: return expressions[20];
+            case 10: return expressions[22];
+            case 11: return expressions[24];
+            case 12: return expressions[26];
+            case 13: return expressions[28];
+            case 14: return expressions[30];
+            default: return null;
+        }
+    }
+
+    public boolean isCorrect(){
+        for (int i = 0; i < 31; i++){
+            if (symbols[i]!=null) {
+                if (symbols[i].isLiteral()) {
+                    if (getLeftChild(i) != null || getRightChild(i) != null)
+                        return false;
+                }
+                if (symbols[i].isUnaryOperator()) {
+                    if (!((getLeftChild(i) == null && getRightChild(i) != null) || (getLeftChild(i) != null && getRightChild(i) == null)))
+                        return false;
+                }
+                if (symbols[i].isBinaryOperator()) {
+                    if (!(getLeftChild(i) != null && getRightChild(i) != null))
+                        return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    public void fillExpressions(){
+        for (int i = 30; i > 14; i--){
+            if (symbols[i]!=null)
+                expressions[i] = new Expression(symbols[i]);
+        }
+        for (int i = 14; i > -1; i--){
+            if (symbols[i]!=null){
+                if (symbols[i].isLiteral()){
+                    expressions[i] = new Expression(symbols[i]);
+                }
+                if (symbols[i].isUnaryOperator()){
+                    if (getLeftChild(i)!=null){
+                        expressions[i] = new Expression(symbols[i],getLeftChildExp(i));
+                    }
+                    else {
+                        expressions[i] = new Expression(symbols[i],getRightChildExp(i));
+                    }
+                }
+                if (symbols[i].isBinaryOperator()){
+                    expressions[i] = new Expression(symbols[i],getLeftChildExp(i),getRightChildExp(i));
+                }
+            }
+        }
+    }
+
+    void add (Symbol symbol){
+        symbols[cursor]=symbol; cursor++;
+    }
+
+    void endIt(){
+        if (isCorrect())
+            fillExpressions();
+    }
+
+    public Expression getRootExpression() {
+        if (expressions[0] == null) fillExpressions();
+        return expressions[0];
+    }
+
+    public void moveToNextEmptySlot() {
+        if (cursor < 30) cursor++;
+    }
+
+    public int getTotalNodeCount() {
+        int count = 0;
+        for (int i = 0; i < 31; i++) {
+            if (symbols[i] != null) count++;
+        }
+        return count;
+    }
+
+    public int getUniqueVariableCount() {
+        boolean[] found = new boolean[256];
+        int count = 0;
+        for (int i = 0; i < 31; i++) {
+            if (symbols[i] != null && symbols[i].isLiteral()) {
+                if (!found[symbols[i].getSymbol()]) {
+                    found[symbols[i].getSymbol()] = true;
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    public int getDepth(int index) {
+        if (index >= 31 || symbols[index] == null) return 0;
+        int leftDepth = getDepth(2 * index + 1);
+        int rightDepth = getDepth(2 * index + 2);
+        return Math.max(leftDepth, rightDepth) + 1;
+    }
+
+    public String getInfix(int index) {
+        if (index >= 31 || symbols[index] == null) return "";
+        if (symbols[index].isLiteral()) return String.valueOf(symbols[index].getSymbol());
+
+        String result = "";
+        if (symbols[index].isUnaryOperator()) {
+            result = "(" + symbols[index].getSymbol() + getInfix(2 * index + 1) + getInfix(2 * index + 2) + ")";
+        } else {
+            result = "(" + getInfix(2 * index + 1) + " " + symbols[index].getSymbol() + " " + getInfix(2 * index + 2) + ")";
+        }
+        return result;
+    }
+
+    public String getPostfix(int index) {
+        if (index >= 31 || symbols[index] == null) return "";
+        if (symbols[index].isLiteral()) return symbols[index].getSymbol() + " ";
+
+        return getPostfix(2 * index + 1) + getPostfix(2 * index + 2) + symbols[index].getSymbol() + " ";
+    }
+}
