@@ -1,0 +1,95 @@
+import java.util.Random;
+
+public class XRobot extends GameElement {
+    private Random rnd = new Random();
+    public boolean isTargeted = false;
+    private boolean startWithTargeted;
+
+    public XRobot(int row, int col) {
+        super(row, col, 'X');
+        this.startWithTargeted = rnd.nextBoolean();
+        this.isTargeted = this.startWithTargeted;
+    }
+
+    public void move(String[][] field, Symbol[] items, int itemCount, int unitTime) {
+        int phase = (unitTime / 50) % 2;
+
+        if (startWithTargeted) {
+            isTargeted = (phase == 0);
+        } else {
+            isTargeted = (phase == 1);
+        }
+
+        if (isTargeted) {
+            moveToNearestItem(field, items, itemCount);
+        } else {
+            randomMove(field);
+        }
+    }
+
+    public boolean isHunting() {
+        return isTargeted;
+    }
+
+    private void randomMove(String[][] field) {
+        int dir = rnd.nextInt(4);
+        int newR = row, newC = col;
+
+        if (dir == 0) newR--;
+        else if (dir == 1) newR++;
+        else if (dir == 2) newC--;
+        else newC++;
+
+        if (isValidMove(field, newR, newC)) {
+            row = newR;
+            col = newC;
+        }
+    }
+
+    private void moveToNearestItem(String[][] field, Symbol[] items, int itemCount) {
+        int minDistance = Integer.MAX_VALUE;
+        Symbol closestItem = null;
+        int closestItemIndex = -1;
+
+        for (int i = 0; i < itemCount; i++) {
+            if (items[i] != null && items[i].getSymbol() != '@') {
+                int dist = Math.abs(items[i].getRow() - row) + Math.abs(items[i].getCol() - col);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestItem = items[i];
+                    closestItemIndex = i;
+                }
+            }
+        }
+
+        if (closestItem != null) {
+            int newR = row;
+            int newC = col;
+
+            if (closestItem.getRow() > row) newR++;
+            else if (closestItem.getRow() < row) newR--;
+            else if (closestItem.getCol() > col) newC++;
+            else if (closestItem.getCol() < col) newC--;
+
+            if (newR == closestItem.getRow() && newC == closestItem.getCol()) {
+                row = newR;
+                col = newC;
+                items[closestItemIndex] = null;
+            }
+            else if (isValidMove(field, newR, newC)) {
+                row = newR;
+                col = newC;
+            } else {
+                randomMove(field);
+            }
+        } else {
+            randomMove(field);
+        }
+    }
+
+    private boolean isValidMove(String[][] field, int r, int c) {
+        if (r < 0 || r >= field.length || c < 0 || c >= field[0].length) return false;
+        String cell = field[r][c];
+        return !cell.equals("wall") && !cell.equals("X") && !cell.equals("P");
+    }
+}
