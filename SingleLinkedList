@@ -1,0 +1,22 @@
+public class SingleLinkedList {
+    private Node head; //starting point
+
+    public SingleLinkedList() {
+        head = null;
+    }
+
+    // adds a new node to the end of the list
+    public void unsortedAdding(Object addingData) {
+        if(head == null) {
+            Node newNode = new Node(addingData);
+            head = newNode;
+        } else {
+            Node newNode = new Node(addingData);
+            Node temp = head;
+            while(temp.getLink() != null) {
+                temp = temp.getLink();
+            }
+            temp.setLink(newNode); // to connect next node
+        }
+    }
+}
