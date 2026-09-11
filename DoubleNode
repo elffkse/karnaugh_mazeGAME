@@ -1,0 +1,13 @@
+public class DoubleNode {
+    String name;
+    int score;
+    DoubleNode prev;
+    DoubleNode next;
+
+    public DoubleNode(String name, int score) {
+        this.name = name;
+        this.score = score;
+        this.prev = null;
+        this.next = null;
+    }
+}
