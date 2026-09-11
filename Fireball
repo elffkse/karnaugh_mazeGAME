@@ -1,0 +1,43 @@
+public class Fireball extends GameElement {
+    private int dirR;
+    private int dirC;
+    private boolean isActive;
+
+    public Fireball(int row, int col) {
+        super(row, col, '@');
+        this.isActive = false;
+    }
+
+    public void activate(int startR, int startC, int dr, int dc) {
+        this.row = startR;
+        this.col = startC;
+        this.dirR = dr;
+        this.dirC = dc;
+        this.isActive = true;
+        this.symbol = 'o';
+    }
+
+    public void move(String[][] gameField) {
+        if (!isActive)
+            return;
+
+        int nextR = row + dirR;
+        int nextC = col + dirC;
+
+        if (nextR >= 0 && nextR < gameField.length && nextC >= 0 && nextC < gameField[0].length) {
+            String target = gameField[nextR][nextC];
+
+            if (target.equals("wall") || (!target.equals("empty") && !target.equals("X"))) {
+                isActive = false;
+            } else {
+                this.row = nextR;
+                this.col = nextC;
+            }
+        } else {
+            isActive = false;
+        }
+    }
+
+    public boolean isActive() { return isActive; }
+    public void setActive(boolean active) { this.isActive = active; }
+}
