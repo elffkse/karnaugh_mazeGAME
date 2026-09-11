@@ -1,0 +1,66 @@
+public class Player extends GameElement {
+    private int lifePoints;
+    private int score;
+    private int fireballCount;
+    private String storageMode;
+    private Backpack backpack;
+
+    public Player(int row, int col) {
+        super(row, col, 'P');
+        this.lifePoints = 100;
+        this.score = 0;
+        this.fireballCount = 0;
+        this.storageMode = "Tree";
+        this.backpack = new Backpack();
+    }
+
+    public void toggleStorageMode() {
+        if (storageMode.equals("Tree")) storageMode = "Backpack";
+        else storageMode = "Tree";
+    }
+
+    public boolean collectItem(Symbol item, Tree tree) {
+        if (item.getSymbol() == '@') {
+            fireballCount++;
+            return true;
+        }
+
+        if (storageMode.equals("Backpack")) {
+            if (!backpack.isFull()) {
+                backpack.push(item);
+                return true;
+            } else {
+                tree.symbols[tree.cursor] = item;
+                tree.moveToNextEmptySlot();
+                return true;
+            }
+        } else {
+            tree.symbols[tree.cursor] = item;
+            tree.moveToNextEmptySlot();
+            return true;
+        }
+    }
+
+    public void checkHarming(String[][] gameField) {
+        int[] dRow = {-1, 1, 0, 0};
+        int[] dCol = {0, 0, -1, 1};
+
+        for (int i = 0; i < 4; i++) {
+            int nr = row + dRow[i];
+            int nc = col + dCol[i];
+            if (nr >= 0 && nr < gameField.length && nc >= 0 && nc < gameField[0].length) {
+                if (gameField[nr][nc].equals("X")) {
+                    lifePoints -= 5;
+                }
+            }
+        }
+    }
+
+    public int getLifePoint() { return lifePoints; }
+    public int getScore() { return score; }
+    public void addScore(int s) { this.score += s; }
+    public int getFireballCount() { return fireballCount; }
+    public void addFireball(int count) { this.fireballCount += count; }
+    public String getStorageMode() { return storageMode; }
+    public Backpack getBackpack() { return backpack; }
+}
