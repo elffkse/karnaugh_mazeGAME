@@ -1,0 +1,259 @@
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+
+/**
+ * GameEngine — Main class managing game and life loops
+ */
+public class GameEngine {
+
+    // ------------------------------------------------------------------
+    // Constants
+    // ------------------------------------------------------------------
+    private static final int FRAME_DELAY_MS   = 100;
+    private static final int ROBOT_MOVE_EVERY = 4;
+    private static final int ITEM_SPAWN_EVERY = 20;
+
+    // ------------------------------------------------------------------
+    // Input situation
+    // ------------------------------------------------------------------
+    private volatile int keyPressed = 0;
+    private volatile int lastKey    = 0;
+    private int lastDirR = 0;
+    private int lastDirC = 1;
+
+    public static void main(String[] args) throws Exception {
+        new GameEngine().start();
+    }
+
+    public void start() throws Exception {
+        initialize();
+        registerKeyListener();
+        gameLoop();
+        showGameOver();
+    }
+
+    private void initialize() throws Exception {
+        TreeTableLogic.initializeInputQueue();
+        TreeTableLogic.ResetGame();
+        TreeTableLogic.LoadMaze();
+        TreeTableLogic.AssignFirstLocation();
+
+        for (int i = 0; i < 10; i++) {
+            TreeTableLogic.insertFromQueue();
+        }
+    }
+
+    private void registerKeyListener() {
+        KeyListener klis = new KeyListener() {
+            public void keyTyped(KeyEvent e)    { }
+            public void keyReleased(KeyEvent e) { }
+            public void keyPressed(KeyEvent e) {
+                if (GameEngine.this.keyPressed == 0) {
+                    GameEngine.this.lastKey    = e.getKeyCode();
+                    GameEngine.this.keyPressed = 1;
+                }
+            }
+        };
+        TreeTableLogic.cn.getTextWindow().addKeyListener(klis);
+    }
+
+    // ------------------------------------------------------------------
+    // Main game loop
+    // ------------------------------------------------------------------
+    private void gameLoop() throws InterruptedException {
+        while (!TreeTableLogic.isGameOver) {
+
+            if (keyPressed == 1) {
+                TreeTableLogic.rkey = lastKey;
+                keyPressed = 0;
+                processInput();
+            }
+
+            // --- 1. SCREEN (MAZE) ---
+            if (TreeTableLogic.activeScreen == 1) {
+                TreeTableLogic.moveFireballs();
+
+                if (TreeTableLogic.unitTime % ROBOT_MOVE_EVERY == 0) {
+                    TreeTableLogic.moveRobots();
+                }
+
+                if (TreeTableLogic.unitTime % ITEM_SPAWN_EVERY == 0 && TreeTableLogic.unitTime != 0) {
+                    TreeTableLogic.insertFromQueue();
+                }
+
+                TreeTableLogic.player.checkHarming(TreeTableLogic.gameField);
+
+                TreeTableLogic.DrawGameField();
+                TreeTableLogic.DrawHUD();
+
+                TreeTableLogic.unitTime++;
+            }
+            // --- 2. SCREEN (TREE) ---
+            else if (TreeTableLogic.activeScreen == 2) {
+                TreeTableLogic.DrawTreeScreen();
+            }
+            // --- 3. SCREEN (TABLE & KARNAUGH) ---
+            else if (TreeTableLogic.activeScreen == 3) {
+                TreeTableLogic.DrawTableScreen();
+                TreeTableLogic.isGameOver = true;
+            }
+
+            if (TreeTableLogic.player.getLifePoint() <= 0) {
+                TreeTableLogic.isGameOver = true;
+            }
+
+            Thread.sleep(FRAME_DELAY_MS);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Input processing
+    // ------------------------------------------------------------------
+    private void processInput() {
+        int rkey = TreeTableLogic.rkey;
+        
+        if (rkey == KeyEvent.VK_1) {
+            if (TreeTableLogic.activeScreen != 1) clearConsole();
+            TreeTableLogic.activeScreen = 1;
+            return;
+        }
+        if (rkey == KeyEvent.VK_2) {
+            if (TreeTableLogic.activeScreen != 2) clearConsole();
+            TreeTableLogic.activeScreen = 2;
+            return;
+        }
+
+        if (TreeTableLogic.activeScreen == 1) {
+            int oldR  = TreeTableLogic.player.getRow();
+            int oldC  = TreeTableLogic.player.getCol();
+            int newR  = oldR;
+            int newC  = oldC;
+            boolean moved = false;
+
+            if      (rkey == KeyEvent.VK_UP)    { newR--; moved = true; }
+            else if (rkey == KeyEvent.VK_DOWN)  { newR++; moved = true; }
+            else if (rkey == KeyEvent.VK_LEFT)  { newC--; moved = true; }
+            else if (rkey == KeyEvent.VK_RIGHT) { newC++; moved = true; }
+            else if (rkey == KeyEvent.VK_M) {
+                TreeTableLogic.player.toggleStorageMode();
+                return;
+            }
+            else if (rkey == KeyEvent.VK_SPACE) {
+                handleFireball();
+                return;
+            }
+
+            if (!moved) return;
+
+            if (newR < 0 || newR >= TreeTableLogic.height ||
+                    newC < 0 || newC >= TreeTableLogic.length) return;
+
+            String target = TreeTableLogic.gameField[newR][newC];
+            if (target.equals("wall")) return;
+
+            if (!target.equals("empty") && !target.equals("X")) {
+                handleCollection(target, newR, newC);
+            }
+
+            TreeTableLogic.gameField[oldR][oldC] = "empty";
+            TreeTableLogic.player.setRow(newR);
+            TreeTableLogic.player.setCol(newC);
+            TreeTableLogic.gameField[newR][newC] = "P";
+
+            lastDirR = newR - oldR;
+            lastDirC = newC - oldC;
+        }
+        else if (TreeTableLogic.activeScreen == 2) {
+            if (rkey == KeyEvent.VK_W) {
+                TreeTableLogic.treeCursorPos = (TreeTableLogic.treeCursorPos - 1) / 2;
+                if (TreeTableLogic.treeCursorPos < 0) TreeTableLogic.treeCursorPos = 0;
+                TreeTableLogic.player.addScore(-1);
+            }
+            else if (rkey == KeyEvent.VK_A) {
+                int next = 2 * TreeTableLogic.treeCursorPos + 1;
+                if (next <= 30) { TreeTableLogic.treeCursorPos = next; TreeTableLogic.player.addScore(-1); }
+            }
+            else if (rkey == KeyEvent.VK_D) {
+                int next = 2 * TreeTableLogic.treeCursorPos + 2;
+                if (next <= 30) { TreeTableLogic.treeCursorPos = next; TreeTableLogic.player.addScore(-1); }
+            }
+            else if (rkey == KeyEvent.VK_T) {
+                if (!TreeTableLogic.player.getBackpack().isEmpty() && TreeTableLogic.gameTree.symbols[TreeTableLogic.treeCursorPos] == null) {
+                    TreeTableLogic.gameTree.symbols[TreeTableLogic.treeCursorPos] = TreeTableLogic.player.getBackpack().pop();
+                }
+            }
+            else if (rkey == KeyEvent.VK_R) {
+                if (TreeTableLogic.gameTree.symbols[TreeTableLogic.treeCursorPos] != null && !TreeTableLogic.player.getBackpack().isFull()) {
+                    TreeTableLogic.player.getBackpack().push(TreeTableLogic.gameTree.symbols[TreeTableLogic.treeCursorPos]);
+                    TreeTableLogic.gameTree.symbols[TreeTableLogic.treeCursorPos] = null;
+                    TreeTableLogic.player.addScore(-2);
+                }
+            }
+            else if (rkey == KeyEvent.VK_F) {
+                if (!TreeTableLogic.gameTree.isCorrect() || TreeTableLogic.gameTree.getDepth(0) < 3 || TreeTableLogic.gameTree.getUniqueVariableCount() < 3) {
+                    TreeTableLogic.player.addScore(-10);
+                } else {
+                    int treeScore = 10 * TreeTableLogic.gameTree.getTotalNodeCount();
+                    TreeTableLogic.player.addScore(treeScore);
+                    clearConsole();
+                    TreeTableLogic.activeScreen = 3;
+                }
+            }
+        }
+    }
+
+
+    private void clearConsole() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 90; i++) {
+            sb.append(" ");
+        }
+        String emptyLine = sb.toString();
+
+        for (int i = 0; i < 25; i++) {
+            TreeTableLogic.PrintText(0, i, emptyLine);
+        }
+    }
+
+    private void handleCollection(String symbolStr, int r, int c) {
+        Symbol itemToCollect = new Symbol(symbolStr.charAt(0));
+
+        if (symbolStr.equals("@")) {
+            TreeTableLogic.player.addFireball(1);
+            TreeTableLogic.player.addScore(5);
+        } else {
+            boolean added = TreeTableLogic.player.collectItem(itemToCollect, TreeTableLogic.gameTree);
+            if (added) {
+                TreeTableLogic.player.addScore(10);
+            }
+        }
+        removeItemFromField(r, c);
+    }
+
+    private void handleFireball() {
+        if (TreeTableLogic.player.getFireballCount() > 0) {
+            TreeTableLogic.player.addFireball(-1);
+            Fireball fb = new Fireball(TreeTableLogic.player.getRow(), TreeTableLogic.player.getCol());
+            fb.activate(TreeTableLogic.player.getRow(), TreeTableLogic.player.getCol(), lastDirR, lastDirC);
+            TreeTableLogic.activeFireballs[TreeTableLogic.fireballCount++] = fb;
+        }
+    }
+
+    private void removeItemFromField(int r, int c) {
+        for (int i = 0; i < TreeTableLogic.itemCount; i++) {
+            Symbol item = TreeTableLogic.allItems[i];
+            if (item != null && item.getRow() == r && item.getCol() == c) {
+                TreeTableLogic.allItems[i] = null;
+                break;
+            }
+        }
+    }
+
+    private void showGameOver() {
+        if (TreeTableLogic.activeScreen == 3) {
+            TreeTableLogic.handleKarnaughAndGameOver();
+        } else {
+            TreeTableLogic.handleGameOverOnly();
+        }
+    }
+}
