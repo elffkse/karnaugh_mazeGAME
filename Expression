@@ -1,0 +1,57 @@
+public class Expression {
+    Symbol operator;
+    Symbol operand00;
+    Expression operand01;
+    Symbol operand10;
+    Expression operand11;
+
+    public Expression(Symbol operator, Symbol operand00, Symbol operand10) {
+        this.operator = operator; this.operand00 = operand00; this.operand10 = operand10;
+    }
+    public Expression(Symbol operator, Symbol operand00, Expression operand11) {
+        this.operator = operator; this.operand00 = operand00; this.operand11 = operand11;
+    }
+    public Expression(Symbol operator, Expression operand01, Symbol operand10) {
+        this.operator = operator; this.operand01 = operand01; this.operand10 = operand10;
+    }
+    public Expression(Symbol operator, Expression operand01, Expression operand11) {
+        this.operator = operator; this.operand01 = operand01; this.operand11 = operand11;
+    }
+    public Expression(Symbol operand00) { this.operand00 = operand00; }
+    public Expression(Symbol operator, Symbol operand00) { this.operator = operator; this.operand00 = operand00; }
+
+    public Expression(Symbol operator, Expression operand01) {
+        this.operator = operator;
+        this.operand01 = operand01;
+    }
+
+    public boolean calculate(boolean bool0) {
+        if (operator != null && operator.getSymbol() == '~') return !bool0;
+        return bool0;
+    }
+
+    public boolean calculate(boolean bool0, boolean bool1) {
+        if (operator == null) return false;
+        switch (operator.getSymbol()) {
+            case '^': return bool0 && bool1;
+            case 'v': return bool0 || bool1;
+            case '+': return (bool0 || bool1) && !(bool0 && bool1);
+            case '>': return !bool0 || bool1;
+            case '=': return bool0 == bool1;
+            default: return false;
+        }
+    }
+
+    public String stringize(boolean includeParenthesis) {
+        String res = includeParenthesis ? "(" : "";
+        if (operand00 != null) res += operand00.getSymbol();
+        else if (operand01 != null) res += operand01.stringize(!operand01.isLiteral());
+        if (operator != null) res += operator.getSymbol();
+        if (operand10 != null) res += operand10.getSymbol();
+        else if (operand11 != null) res += operand11.stringize(!operand11.isLiteral());
+        if (includeParenthesis) res += ")";
+        return res;
+    }
+
+    public boolean isLiteral() { return operator == null; }
+}
