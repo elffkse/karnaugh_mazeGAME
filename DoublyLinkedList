@@ -1,0 +1,50 @@
+public class DoublyLinkedList {
+    private DoubleNode head;
+    private DoubleNode tail;
+
+    public DoublyLinkedList() {
+        head = null;
+        tail = null;
+    }
+
+    public void addSorted(String name, int score) {
+        DoubleNode newNode = new DoubleNode(name, score);
+
+        if (head == null) {
+            head = newNode;
+            tail = newNode;
+        } else if (head.score <= score) {
+            newNode.next = head;
+            head.prev = newNode;
+            head = newNode;
+        } else {
+            DoubleNode current = head;
+            while (current.next != null && current.next.score > score) {
+                current = current.next;
+            }
+            newNode.next = current.next;
+            if (current.next != null) {
+                current.next.prev = newNode;
+            } else {
+                tail = newNode;
+            }
+            current.next = newNode;
+            newNode.prev = current;
+        }
+    }
+
+    public void displayList(enigma.console.Console cn, int startX, int startY) {
+        DoubleNode current = head;
+        int yOffset = 0;
+        while (current != null && yOffset < 10) {
+            String text = String.format("%-15s %5d", current.name, current.score);
+            PrintText(cn, startX, startY + yOffset, text);
+            current = current.next;
+            yOffset++;
+        }
+    }
+
+    private void PrintText(enigma.console.Console cn, int x, int y, String text) {
+        for (int i = 0; i < text.length(); i++) cn.getTextWindow().output(x + i, y, text.charAt(i));
+    }
+}
